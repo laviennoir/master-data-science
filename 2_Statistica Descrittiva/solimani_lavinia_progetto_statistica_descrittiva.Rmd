@@ -1,0 +1,1072 @@
+---
+title: "Progetto di Statistica Descrittiva"
+author: "Lavinia Solimani"
+date: "`r format(Sys.Date(), '%d/%m/%Y')`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library(moments)
+library(ggplot2)
+library(scales)
+library(dplyr)
+library(paletteer)
+```
+
+Questa analisi esaminerà le tendenze del mercato immobiliare nello stato del Texas, sfruttando i dati storici relativi alle vendite di immobili, con l'obiettivo di fornire insight statistici e visivi che supportino le decisioni strategiche di vendita e ottimizzazione delle inserzioni immobiliari dell'azienda Texas Realty Insights. 
+
+
+Innanzitutto, importiamo il dataset e visualizziamone la struttura.
+
+```{r}
+realestate_texas <- read.csv("realestate_texas.csv", sep=",")
+str(realestate_texas)
+```
+
+# 1. Analisi delle variabili
+
+Il dataset è costituito da 240 osservazioni con le seguenti 8 variabili.
+
+- **city**: città di riferimento (variabile qualitativa su scala nominale);
+- **year**: anno di riferimento (variabile quantitativa continua, da trattare come qualitativa ordinale in questo caso);
+- **month**: mese di riferimento (variabile qualitativa nominale ciclica, ma codificata in numeri);
+- **sales**: numero totale di vendite (variabile quantitativa discreta);
+- **volume**: valore totale delle vendite in milioni di dollari (variabile quantitativa continua);
+- **median_price**: prezzo mediano di vendita in dollari (variabile quantitativa continua);
+- **listings**: numero totale di annunci attivi (variabile quantitativa discreta);
+- **months_inventory**: quantità di tempo necessaria per vendere tutte le inserzioni correnti, espresso in mesi (variabile quantitativa continua).
+
+
+Definiamo la variabile *N*, che descriverà la numerosità del campione.
+
+```{r}
+N <- dim(realestate_texas)[1]
+```
+
+
+
+# 2. Indici di posizione, variabilità e forma
+
+```{r}
+attach(realestate_texas)
+```
+
+
+## Variabile city
+
+### Indici di posizione
+
+Essendo una variabile qualitativa su scala nominale, la moda è l'unico indice di posizione che è possibile ricavare.
+
+```{r}
+table(city)
+```
+
+La variabile risulta essere quadrimodale, in quanto le modalità in cui si presenta sono quattro, e ciascuna di esse presenta 60 osservazioni. In altre parole, nel dataset sono prese in esame quattro diverse città, e ciascuna di esse è ugualmente rappresentata.
+
+
+Ora definiamo la distribuzione di frequenze assolute e relative della variabile. 
+
+```{r}
+n_city <- table(city)
+f_city <- n_city/N
+
+freq_distr_city <- cbind(n_city, f_city)
+freq_distr_city
+```
+
+### Indici di variabilità
+
+Per le variabili qualitative può essere calcolato l'**indice di eterogeneità di Gini**, il quale misura la propensione di una variabile ad assumere le sue diverse modalità. 
+
+```{r}
+gini.index <- function(x){
+  ni = table(x)
+  fi = ni/length(x)
+  fi2 = fi^2
+  J = length(table(x))
+  
+  gini = 1-sum(fi2)
+  gini.normalizzato = gini/((J-1)/J)
+  
+  return(gini.normalizzato)
+}
+
+gini.index(city)
+```
+Coerentemente con quanto rilevato trovando la moda di questa variabile, essendo l'indice pari a 1 significa che l'eterogeneità è massima. In altre parole, le osservazioni sono equamente distribuite tra le modalità della variabile.
+
+
+## Variabile year
+
+### Indici di posizione
+
+Essendo anche questa una variabile qualitativa, l'unico indice di posizione che è possibile ricavare è la moda.
+
+```{r}
+table(year)
+```
+La variabile *year* risulta essere pentamodale, in quanto si presenta in cinque modalità con 48 osservazioni ciascuna. Nello specifico, l'intervallo temporale osservato nel dataset è di cinque anni, dal 2010 al 2014. 
+
+
+Anche per questa variabile, definiamo la distribuzione di frequenze. Essendo *year* una variabile qualitativa su scala ordinale, in questo caso possiamo definire anche le frequenze cumulate e le frequenze relative cumulate. 
+
+```{r}
+n_year <- table(year)
+f_year <- n_year/N
+N_year <- cumsum(n_year)
+F_year <- N_year/N 
+
+freq_distr_year <- cbind(n_year, f_year, N_year, F_year)
+freq_distr_year
+```
+
+### Indici di variabilità
+
+Anche per questa variabile, calcoliamo l'indice di eterogeneità di Gini. Avendo precedentemente rilevato che per ciascuna modalità sono presenti 48 osservazioni, l'indice di eterogeneità sarà pari a 1.
+
+```{r}
+gini.index(year)
+```
+
+
+## Variabile month
+
+Ora analizziamo la variabile *month*, anch'essa di tipo qualitativo su scala ordinale.
+
+### Indici di posizione
+
+```{r}
+table(month)
+```
+
+Anche nel caso di questa variabile, le osservazioni sono equamente distribuite tra le 12 modalità in cui la variabile si presenta. Tutti i mesi dell'anno, quindi, sono presenti in egual misura. 
+
+
+Ora definiamo la distribuzione di frequenze.
+
+```{r}
+n_month <- table(month)
+f_month <- round(n_month/N, digits = 3)
+
+freq_distr_month <- cbind(n_month, f_month)
+freq_distr_month
+```
+
+### Indici di variabilità
+
+Anche per questa variabile, calcoliamo l'indice di eterogeneità di Gini. Avendo precedentemente rilevato che per ciascuna modalità sono presenti 20 osservazioni, l'indice di eterogeneità sarà pari a 1.
+
+```{r}
+gini.index(month)
+```
+
+
+
+Ora passiamo alle variabili quantitative del dataset. Per ciascuna di esse, ricaviamo i principali indici di posizione, variabilità e forma.
+
+
+## Variabile sales
+
+### Indici di posizione
+
+Innanzitutto, utilizziamo la funzione **summary()** per ricavare massimo e minimo, primo e terzo quartile, media aritmetica e mediana.
+
+```{r}
+summary(sales)
+```
+
+Poiché la media è maggiore della mediana, possiamo già affermare che la distribuzione di questa variabile è **asimmetrica positiva**. 
+
+
+### Indici di variabilità
+
+Calcoliamo innanzitutto l'**intervallo di variazione**, sottraendo il valore minimo della distribuzione al valore massimo.
+
+```{r}
+max(sales)-min(sales)
+```
+Ora calcoliamo invece la **differenza interquartile**, ovvero l'intervallo di variazione del corpo centrale della distribuzione.
+
+```{r}
+IQR(sales)
+```
+Ora quantifichiamo la dispersione dei dati attorno alla media, calcolando la **varianza** e la **deviazione standard**.
+
+```{r}
+var(sales)
+```
+```{r}
+round(sd(sales), digits = 2)
+```
+Essendo la varianza e la deviazione standard degli indici assoluti, calcoliamo anche il **coefficiente di variazione**, che è invece una misura relativa e, quindi, può essere più utile per confrontare la variabilità di questa distribuzione con quella delle altre variabili del dataset.
+
+
+Il coefficiente di variazione può essere un indice problematico in caso di valori negativi nella distribuzione o zero convenzionali nella scala di misura, ma con le variabili di questo dataset non si presenta nessuna delle due casistiche.
+
+```{r}
+CV <- function(x){
+  return(sd(x)/mean(x)*100)
+}
+
+round(CV(sales), digits = 2)
+```
+
+### Indici di forma
+
+Ora verifichiamo se la distribuzione della variabile *sales* sia effettivamente asimmetrica positiva calcolando l'**indice di asimmetria di Fisher**. 
+
+```{r}
+round(skewness(sales), digits = 2)
+```
+Il valore positivo dell'indice di asimmetria conferma che la distribuzione della variabile *sales* è asimmetrica positiva. In altre parole, la maggior parte dei dati è concentrata sui valori bassi a sinistra, con una coda lunga che si estende verso i valori alti a destra. 
+
+
+Ora invece calcoliamo il **coefficiente di curtosi**, per verificare il grado di schiacciamento/allungamento della forma della distribuzione rispetto alla normale. 
+
+```{r}
+round(kurtosis(sales)-3, digits = 2)
+```
+Essendo il valore negativo, la distribuzione è **platicurtica**, ovvero con una forma più appiattita rispetto alla distribuzione normale. 
+
+
+Ora procediamo a calcolare questi indici di posizione, variabilità e forma anche per le altre variabili quantitative.
+
+
+## Variabile volume
+
+### Indici di posizione
+
+```{r}
+summary(volume)
+```
+
+Poiché la media è maggiore della mediana, anche per questa variabile possiamo già affermare che la distribuzione è **asimmetrica positiva**.
+
+
+### Indici di variabilità
+
+```{r}
+round(max(volume)-min(volume), digits = 2)
+```
+```{r}
+round(IQR(volume), digits = 2)
+```
+```{r}
+round(var(volume), digits = 2)
+```
+```{r}
+round(sd(volume), digits = 2)
+```
+```{r}
+round(CV(volume), digits = 2)
+```
+Il coefficiente di variazione della variabile *volume* è del 53,7%, mentre per la variabile *sales* il valore era del 41,4%. Ciò significa, quindi, che la variabile *volume* presenta una maggiore variabilità. 
+
+
+### Indici di forma
+
+```{r}
+round(skewness(volume), digits = 2)
+```
+Anche in questo caso, essendo il valore dell'indice di asimmetria di Fisher maggiore di zero, la distribuzione si conferma essere asimmetrica positiva. Con un valore di 0,89, la variabile *volume* risulta essere maggiormente asimmetrica rispetto alla variabile *sales*, che invece presenta un indice di asimmetria di 0,72.
+
+```{r}
+round(kurtosis(volume)-3, digits = 2)
+```
+Essendo il valore maggiore di zero, la distribuzione della variabile *volume* è **leptocurtica**, ovvero con una forma più allungata rispetto alla normale.
+
+
+## Variabile median_price
+
+### Indici di posizione
+
+```{r}
+summary(median_price)
+```
+
+Poiché la media è minore della mediana, possiamo ipotizzare che la distribuzione sia **asimmetrica negativa**. Ciò significa che la maggior parte dei dati è concentrata sui valori alti, quindi a destra della distribuzione, con una coda lunga che si estende verso i valori bassi, quindi a sinistra. Questo aspetto sarà verificato quando calcoleremo l'indice di asimmetria di Fisher. 
+
+
+### Indici di variabilità
+
+```{r}
+max(median_price)-min(median_price)
+```
+```{r}
+IQR(median_price)
+```
+```{r}
+var(median_price)
+```
+```{r}
+sd(median_price)
+```
+```{r}
+round(CV(median_price), digits = 2)
+```
+Il coefficiente di variazione della variabile *median_price*, quindi, è del 17,1%, quindi questa variabile presenta una variabilità decisamente minore rispetto a *sales* e *volume*. 
+
+
+### Indici di forma
+
+```{r}
+round(skewness(median_price), digits = 2)
+```
+In questo caso, essendo il valore dell'indice di asimmetria di Fisher minore di zero, possiamo confermare che la distribuzione è asimmetrica negativa.  
+
+```{r}
+round(kurtosis(median_price)-3, digits = 2)
+```
+Come nel caso della variabile *sales*, essendo il valore dell'indice di curtosi negativo, la distribuzione è **platicurtica**, ovvero con una forma più appiattita rispetto alla distribuzione normale. Tuttavia, con un valore di -0,62, questa distribuzione è nettamente più appiattita rispetto alla distribuzione della variabile *sales*, che invece presenta un indice di curtosi di -0,31. 
+
+
+## Variabile listings
+
+### Indici di posizione
+
+```{r}
+summary(listings)
+```
+
+Essendo la media maggiore della mediana, possiamo già ipotizzare che la distribuzione sia **asimmetrica positiva**. 
+
+
+### Indici di variabilità
+
+```{r}
+max(listings)-min(listings)
+```
+```{r}
+IQR(listings)
+```
+```{r}
+var(listings)
+```
+```{r}
+round(sd(listings), digits = 2)
+```
+```{r}
+round(CV(listings), digits = 2)
+```
+Con un coefficiente di variazione del 43,3%, la variabile *listings* presenta una variabilità molto simile alla variabile *sales*. 
+
+
+### Indici di forma
+
+```{r}
+round(skewness(listings), digits = 2)
+```
+Con un indice di asimmetria maggiore di zero, possiamo confermare che la distribuzione della variabile *listings* è asimmetrica positiva. 
+
+```{r}
+round(kurtosis(listings)-3, digits = 2)
+```
+Con un indice di curtosi minore di zero, la distribuzione della variabile *listings* è **platicurtica**. Pertanto, la forma è più appiattita rispetto a quella della distribuzione normale.
+
+
+## Variabile months_inventory
+
+### Indici di posizione
+
+```{r}
+summary(months_inventory)
+```
+
+Essendo la media maggiore della mediana, la distribuzione è **asimmetrica positiva**. Ad ogni modo, lo andremo poi a verificare calcolando l'indice di asimmetria.  
+
+
+### Indici di variabilità
+
+```{r}
+max(months_inventory)-min(months_inventory)
+```
+```{r}
+IQR(months_inventory)
+```
+```{r}
+round(var(months_inventory), digits = 2)
+```
+```{r}
+round(sd(months_inventory), digits = 2)
+```
+```{r}
+round(CV(months_inventory), digits = 2)
+```
+Il coefficiente di variazione è del 25,1%, quindi la distribuzione di questa variabile presenta una variabilità maggiore di *median_price*, ma minore di *sales*, *volume* e *listings*.
+
+
+### Indici di forma
+
+```{r}
+round(skewness(months_inventory), digits = 2)
+```
+L'indice di asimmetria di Fisher per questa variabile è maggiore di zero, quindi possiamo confermare che la distribuzione è asimmetrica positiva. Tuttavia, vale la pena notare come l'indice sia molto vicino allo zero e come, quindi, la distribuzione di questa variabile sia molto meno asimmetrica rispetto alle altre. 
+
+```{r}
+round(kurtosis(months_inventory)-3, digits = 2)
+```
+L'indice di curtosi per questa variabile è minore di zero, quindi la distribuzione è **platicurtica**, ovvero presenta una forma più appiattita rispetto alla distribuzione normale.
+
+
+
+# 3. Identificazione delle variabili con maggiore variabilità e asimmetria
+
+Confrontiamo la **variabilità** della variabili quantitative del dataset, riepilogando di seguito il coefficiente di variazione di ciascuna:
+
+- **sales**: 41.42
+- **volume**: 53.71
+- **median_price**: 17.08
+- **listings**: 43.31
+- **months_inventory**: 25.06
+
+La variabile che presenta la più alta variabilità risulta essere *volume*, ovvero il valore totale delle vendite. L'alta variabilità è indice di elevata dispersione dei dati all'interno della distribuzione e, di conseguenza, poca uniformità all'interno del campione. Essendo i dati molto dispersi attorno al valore medio, esso risulta quindi poco informativo sul comportamento della variabile. 
+
+
+Al contrario, la variabile che presenta la variabilità più bassa è *median_price*, ovvero il prezzo mediano di vendita. Ciò significa che le osservazioni del dataset sono concentrate attorno al valore medio e, pertanto, quest'ultimo è abbastanza rappresentativo del fenomeno. 
+
+
+Ora confrontiamo invece l'**asimmetria** delle distribuzioni, prendendo come riferimento l'indice di asimmetria di Fisher per ciascuna variabile quantitativa:
+
+- **sales**: 0.72
+- **volume**: 0.88
+- **median_price**: -0.36
+- **listings**: 0.65
+- **months_inventory**: 0.04
+
+Possiamo innanzitutto notare che quattro distribuzioni su cinque sono asimmetriche positive, mentre solamente una è asimmetrica negativa.
+
+
+La variabile con la distribuzione maggiormente asimmetrica risulta essere *volume*, che è asimmetrica positiva e, pertanto,  presenta la maggior parte dei dati con valori bassi. In altre parole, la maggior parte delle osservazioni del dataset presenta un valore basso relativo al valore totale delle vendite. 
+
+
+La variabile con la distribuzione meno asimmetrica, invece, è *months_inventory*, ovvero il numero di mesi necessari per vendere tutte le inserzioni correnti. Infatti, questa distribuzione è asimmetrica positiva, ma l'indice di asimmetria è molto basso, quindi la distribuzione presenta maggior equilibrio tra valori bassi e valori alti. 
+
+
+Ora confrontiamo la **curtosi** delle distribuzioni, prendendo come riferimento il relativo indice per ciascuna variabile:
+
+- **sales**: -0.31
+- **volume**: 0.18
+- **median_price**: -0.62
+- **listings**: -0.79
+- **months_inventory**: -0.17
+
+La prima cosa che notiamo è che quattro distribuzioni su cinque sono platicurtiche, quindi con una forma più appiattita, mentre solamente una è leptocurtica.
+
+
+La variabile con la distribuzione più appiattita rispetto alla normale è *listings*, ovvero il numero totale di annunci attivi. Ciò significa che i dati sono più uniformemente distribuiti e presentano una concentrazione minore attorno al valore medio. 
+
+
+Al contrario, la variabile con la distribuzione più allungata rispetto alla normale è *volume*. Questo indica che una maggiore concentrazione di dati attorno alla media, nonché una minore probabilità di valori estremi, sia a destra che a sinistra. Pertanto, la media di questa variabile risulta essere più rappresentativa, rispetto alla media di una distribuzione platicurtica. 
+
+
+
+# 4. Creazione di classi per una variabile quantitativa
+
+Poiché *volume* è la variabile con la variabilità più alta, e quindi con la maggior dispersione di dati attorno al valore medio, la suddividiamo in classi per poi costruirne la distribuzione di frequenze e rappresentarla con un grafico a barre. Infine, ne calcoleremo l'indice di eterogeneità di Gini.
+
+
+Innanzitutto, ricaviamo il minimo e il massimo della distribuzione, per trovarne una suddivisione logica.
+
+```{r}
+range(volume)
+```
+Utilizziamo la funzione **cut()** per creare le classi, defininendole in una nuova variabile.
+
+```{r}
+freq_distr_volume_cl <- cut(volume, breaks=c(0, 20, 40, 60, 80, 100))
+```
+
+Ora costruiamo la distribuzione di frequenze della variabile *volume* suddivisa in classi.
+
+```{r}
+n_volume <- table(freq_distr_volume_cl)
+f_volume <- round(n_volume/N, digits = 3)
+N_volume <- cumsum(n_volume)
+F_volume <- round(N_volume/N, digits = 3)
+
+cbind(n_volume, f_volume, N_volume, F_volume)
+```
+Ora rappresentiamo la distribuzione di frequenze relative con un grafico a barre. 
+
+```{r}
+barplot(f_volume,
+        main = "Distribuzione in classi del valore totale delle vendite",
+        xlab = "Classi del valore totale delle vendite (mln $)",
+        ylab = "Frequenze relative",
+        col = "#453947",
+        names.arg = rownames(freq_distr_volume_cl))
+```
+
+Da questa rappresentazione grafica risulta ancora più evidente l'asimmetria positiva della distribuzione, in quanto le prime due classi sono quelle contenenti la maggior parte delle osservazioni. 
+
+
+Ora calcoliamo l'indice di eterogeneità di Gini.
+
+```{r}
+round(gini.index(freq_distr_volume_cl), digits = 2)
+```
+Poiché l'indice può assumere valori da 0 (eterogeneità nulla) a 1 (eterogeneità massima), questo valore pari a 0,86 significa un'elevata eterogeneità delle unità statistiche, le quali sono quindi abbastanza distribuite tra le modalità della variabile.
+
+
+
+# 5. Calcolo della probabilità
+
+Consideriamo la variabile *city* e calcoliamo la probabilità che, prendendo una riga a caso del dataset, riporti la città "Beaumont". Per farlo, possiamo utilizzare il metodo classico e il metodo frequentista.
+
+
+L'accezione **classica** prevede che la probabilità sia il **numero di casi favorevoli sul numero di casi possibili**.
+In questo caso, quindi, il numero di casi favorevoli è il numero di casi in cui la città sia Beaumont, mentre il numero di casi possibili è il totale delle osservazioni del dataset. Pertanto, la probabilità sarà la seguente:
+
+```{r}
+table(city)["Beaumont"]/N
+```
+L'accezione **frequentista**, invece, prevede che, **per un infinito numero di prove, la probabilità osservata converge al suo vero valore**. 
+
+Creiamo, quindi, un vettore contenente le modalità della variabile *city*, per poi definire la variabile *random_city* come il risultato di un numero di estrazioni casuali. 
+
+```{r}
+cities_list <- unique(city)
+random_city <- sample(cities_list, 1000000, replace = T)
+```
+
+Ora definiamo la funzione di probabilità con una rappresentazione grafica.
+
+```{r}
+ggplot()+
+  geom_bar(aes(x = random_city, 
+               y = after_stat(count/sum(count))),
+           stat = "count",
+           col = "black",
+           fill = "#476F84")+
+  scale_y_continuous(labels = scales::percent,
+                     limits = c(0, 0.3),
+                     breaks = seq(0, 0.3, by = 0.05))+
+  labs(title="Funzione di probabilità della variabile city",
+       x="Città",
+       y="Probabilità (%)")+
+  theme_minimal()
+```
+
+La funzione di probabilità conferma che, anche secondo l'accezione frequentista, la probabilità che una riga del dataset presa a caso riporti la città "Beaumont" è del 25%. Come si può vedere, questa funzione di probabilità è **uniforme**, poiché tutti gli esiti hanno la stessa possibilità di verificarsi. In altre parole, ogni città ha il 25% di possibilità di essere estratta a caso. 
+
+
+Ora consideriamo la variabile *month* e calcoliamo la probabilità che, prendendo una riga a caso del dataset, riporti il mese di luglio. I casi favorevoli, quindi, sono quelli in cui la modalità della variabile è "7".
+
+```{r}
+table(month)["7"]/N
+```
+La probabilità che una riga del dataset presa a caso riporti il mese di luglio è dell'8,3%. 
+Applichiamo anche il metodo frequentista.
+
+```{r}
+months_list <- unique(month)
+random_month <- sample(months_list, 1000000, replace = T)
+
+ggplot()+
+  geom_bar(aes(x = random_month, 
+               y = after_stat(count/sum(count))),
+           stat = "count",
+           col = "black",
+           fill = "#476F84")+
+  scale_x_continuous(limits = c(0.5, 12.5),
+                     breaks = seq(1, 12, by = 1))+
+  scale_y_continuous(labels = scales::percent,
+                     limits = c(0, 0.1),
+                     breaks = seq(0, 0.1, by = 0.01))+
+  labs(title="Funzione di probabilità della variabile month",
+       x="Mese",
+       y="Probabilità (%)")+
+  theme_minimal()
+```
+
+Come si evince dal grafico, eseguendo un numero di estrazioni casuali sufficientemente alto, la probabilità converge al valore calcolato tramite il metodo classico. Anche in questo caso, notiamo come la funzione di probabilità sia uniforme, in quanto tutti gli esiti convergono allo stesso valore di probabilità. 
+
+
+Ora, invece, calcoliamo la probabilità che una riga presa a caso dal dataset riporti il mese di dicembre 2012. In questo caso dovranno essere considerate due variabili, ovvero *year* e *month*, e la probabilità sarà data dal prodotto delle due singole probabilità.
+
+```{r}
+round((table(year)["2012"]/N)*(table(month)["12"]/N), digits = 4)
+```
+Pertanto, la probabilità che una riga estratta a caso dal dataset riporti il mese di dicembre dell'anno 2012 è dell'1,67%.
+
+
+Definiamo la variabile *mm_yy*, che conterrà le informazioni su mese e anno concatenate.
+
+```{r}
+mm_yy <- paste(month, year, sep = "-")
+mm_yy_date <- as.Date(paste0("01-", mm_yy), format = "%d-%m-%Y")
+```
+
+Ora costruiamo la funzione di probabilità secondo l'accezione frequentista.
+
+```{r}
+mm_yy_list <- unique(mm_yy_date)
+random_mm_yy <- sample(mm_yy_list, 1000000, replace = T)
+
+ggplot()+
+  geom_bar(aes(x = random_mm_yy, 
+               y = after_stat(count/sum(count))),
+           stat = "count",
+           col = "black",
+           fill = "#476F84")+
+  scale_x_date(breaks = seq(as.Date("2010-01-01"), as.Date("2014-01-01"), by = "1 year"),
+               date_labels = "%Y")+
+  scale_y_continuous(labels = scales::percent,
+                     limits = c(0, 0.025),
+                     breaks = seq(0, 0.025, by = 0.005))+
+  labs(title="Funzione di probabilità di uno specifico mese ed anno",
+       x="Mese",
+       y="Probabilità (%)")+
+  theme_minimal()
+```
+
+
+
+# 6. Creazione di nuove variabili
+
+Aggiungiamo una colonna al dataset, che riporti il **prezzo medio** degli immobili. Per calcolarlo, dividiamo *volume* (valore totale delle vendite in milioni di dollari) per *sales* (numero totale di vendite).
+
+```{r, message=FALSE, warning=FALSE}
+realestate_texas$avg_price <- (volume*1000000)/sales
+attach(realestate_texas)
+
+summary(avg_price)
+```
+```{r}
+summary(median_price)
+```
+Confrontando i valori minimi e massimi del prezzo medio con quelli del prezzo mediano, possiamo vedere come la media sia maggiormente influenzata dai valori estremi della distribuzione. Infatti, il valore minimo del prezzo medio è molto più basso rispetto a quello del prezzo mediano, mentre il valore massimo è molto più alto.
+
+
+Ora aggiungiamo un'ulteriore colonna al dataset, che misuri l'**efficacia degli annunci di vendita**. I valori della nuova variabile *listing_efficiency* saranno dati dal rapporto fra *sales* (numero totale di vendite) e *listings* (numero totale di annunci attivi). Dopo aver definito la nuova variabile, ordiniamo le righe del dataset per questa variabile in ordine decrescente, in modo da vedere chiaramente in quali casi gli annunci sono stati maggiormente efficaci.
+
+```{r}
+realestate_texas %>%
+  mutate(ratio_sales_listings = sales/listings) %>%
+  select(city, year, sales, listings, ratio_sales_listings) %>%
+  arrange(desc(ratio_sales_listings)) %>%
+  slice_head(n = 15)
+```
+
+Ciò che si può notare è che gli annunci risultano maggiormente efficaci nella città di Bryan-College Station, in particolare negli anni 2013 e 2014. Al contrario, gli anni in cui gli annunci risultano meno efficaci sono il 2010 e il 2011, in particolar modo nella città di Tyler. Nelle ultime righe, infatti, a fronte di un numero più alto di annunci rispetto alle prime righe, si registrano meno della metà delle vendite. 
+
+
+
+# 7. Analisi condizionata
+
+Ora analizziamo l'andamento del numero e valore delle vendite e del prezzo degli immobili al variare delle modalità delle variabili qualitative *city*, *year* e *month*, con lo scopo di verificare l'esistenza di eventuali trend. Nello specifico, creiamo una tabella riassuntiva che permetta di confrontare le variabili quantitative *sales*, *volume* e *median_price* in base alla città, all'anno e al mese. Dopodiché, rappresentiamo graficamente i risultati.
+
+## Analisi condizionata per città 
+
+```{r}
+summary_by_city <- realestate_texas %>%
+  group_by(city) %>%
+  summarise(media_sales = round(mean(sales), digits = 2),
+            dev_st_sales = round(sd(sales), digits = 2),
+            media_median_price = mean(median_price),
+            dev_st_median_price = round(sd(median_price), digits = 2))
+
+summary_by_city
+```
+
+Rappresentiamo graficamente la media e la deviazione standard del numero di vendite condizionate per città.
+
+```{r}
+ggplot(summary_by_city, aes(x = reorder(city, media_sales),
+                            y = media_sales))+
+  geom_col(col = "black",
+           fill = "#453947")+
+  geom_errorbar(aes(ymin = media_sales - dev_st_sales, 
+                    ymax = media_sales + dev_st_sales), 
+                width = 0.3,
+                color = "black")+
+  labs(title = "Media delle vendite per città, con dev. standard",
+       x = "Città",
+       y = "Numero medio di vendite")+
+  theme_minimal()
+```
+
+Dal grafico si evince che la città con il maggior numero di vendite di immmobili in media è Tyler, mentre la città con il minor numero di vendite in media è Wichita Falls. Le linee nere mostrano la deviazione standard, da cui si può affermare che la città Bryan-College Station è quella che presenta la maggior variabilità nel numero di vendite. Ciò significa un'elevata fluttuazione nelle vendite, e quindi più volatilità nel mercato.
+
+
+Ora rappresentiamo graficamente la media e la deviazione standard del prezzo mediano di vendita, sempre condizionato per città.
+
+```{r}
+ggplot(summary_by_city, aes(x = reorder(city, media_median_price),
+                            y = media_median_price))+
+  geom_col(col = "black",
+           fill = "#476F84")+
+  geom_errorbar(aes(ymin = media_median_price - dev_st_median_price, 
+                    ymax = media_median_price + dev_st_median_price), 
+                width = 0.3,
+                color = "black")+
+  scale_y_continuous(labels = label_number(big.mark = ".", decimal.mark = ","))+
+  labs(title = "Media del prezzo mediano di vendita per città, con dev. standard",
+       x = "Città",
+       y = "Media del prezzo mediano ($)")+
+  theme_minimal()
+```
+
+Il grafico mostra che la città nella quale i prezzi degli immobili sono mediamente più alti è Bryan-College Station, mentre la città con i prezzi mediamente più bassi è Wichita Falls. Le linee nere sono abbastanza corte per tutte e quattro le città, indicando una ridotta volatilità dei prezzi in tutte le località.
+
+
+## Analisi condizionata per anno
+
+```{r}
+summary_by_year <- realestate_texas %>%
+  group_by(year) %>%
+  summarise(media_sales = round(mean(sales), digits = 2),
+            dev_st_sales = round(sd(sales), digits = 2),
+            media_median_price = mean(median_price),
+            dev_st_median_price = sd(median_price))
+
+summary_by_year
+```
+
+Rappresentiamo graficamente la media e la deviazione standard del numero di vendite condizionate per anno.
+
+```{r}
+ggplot(summary_by_year, aes(x = year,
+                            y = media_sales))+
+  geom_col(col = "black",
+           fill = "#453947")+
+  geom_errorbar(aes(ymin = media_sales - dev_st_sales, 
+                    ymax = media_sales + dev_st_sales), 
+                width = 0.3,
+                color = "black")+
+  labs(title = "Media delle vendite per anno, con dev. standard",
+       x = "Anno", 
+       y = "Numero medio di vendite")+
+  theme_minimal()
+```
+
+Dalla rappresentazione grafica dei dati si può osservare un leggero calo nelle vendite dal 2010 al 2011, mentre si osserva un trend positivo negli anni successivi. L'anno con il maggior numero di vendite in media, quindi, risulta essere il 2014, seppur con un indice di variabilità molto elevato. Si può notare, infatti, che anche la deviazione standard risulta sempre maggiore dal 2010 al 2014, indicando quindi una minore stabilità e maggiore volatilità del mercato. 
+
+
+Ora rappresentiamo graficamente la media e la deviazione standard del prezzo mediano di vendita, sempre condizionato per anno.
+
+```{r}
+ggplot(summary_by_year, aes(x = year,
+                            y = media_median_price))+
+  geom_col(col = "black",
+           fill = "#476F84")+
+  geom_errorbar(aes(ymin = media_median_price - dev_st_median_price, 
+                    ymax = media_median_price + dev_st_median_price), 
+                width = 0.3,
+                color = "black")+
+  scale_y_continuous(labels = label_number(big.mark = ".",
+                                           decimal.mark = ","))+
+  labs(title = "Media del prezzo mediano di vendita per anno, con dev. standard",
+       x = "Anno",
+       y = "Media del prezzo mediano ($)")+
+  theme_minimal()
+```
+
+Il prezzo mediano di vendita non risulta essere particolarmente condizionato dall'anno; si notano infatti delle differenze molto limitate sia tra le barre del grafico (la media), che tra le linee nere (la deviazione standard). 
+
+
+## Analisi condizionata per mese
+
+```{r}
+summary_by_month <- realestate_texas %>%
+  group_by(month) %>%
+  summarise(media_sales = mean(sales),
+            dev_st_sales = round(sd(sales), digits = 2),
+            media_median_price = mean(median_price),
+            dev_st_median_price = sd(median_price))
+
+summary_by_month
+```
+
+Rappresentiamo graficamente la media e la deviazione standard del numero di vendite condizionate per mese.
+
+```{r}
+ggplot(summary_by_month, aes(x = month,
+                             y = media_sales))+
+  geom_col(col = "black", fill = "#453947")+
+  geom_errorbar(aes(ymin = media_sales - dev_st_sales, 
+                    ymax = media_sales + dev_st_sales), 
+                width = 0.3,
+                color = "black")+
+  scale_x_continuous(limits = c(0.5, 12.5),
+                     breaks = seq(1, 12, by = 1))+
+  labs(title = "Media delle vendite per mese, con dev. standard",
+       x = "Mese",
+       y = "Numero medio di vendite")+
+  theme_minimal()
+```
+
+Considerando il mese, anziché l'anno, si può immediatamente notare come il numero delle vendite sia maggiormente condizionato. In particolare, i mesi in cui si registra il maggior numero di vendite medio sono quelli primaverili ed estivi, quindi da marzo ad agosto. Questi mesi, però, presentano anche un'elevata variabilità, molto maggiore rispetto a quella rilevata nei mesi invernali. Pertanto, nei periodi primaverili ed estivi il mercato risulta essere mediamente più proficuo, ma anche maggiormente instabile. 
+
+
+Ora rappresentiamo graficamente la media e la deviazione standard del prezzo mediano di vendita, sempre condizionato per mese.
+
+```{r}
+ggplot(summary_by_month, aes(x = month,
+                             y = media_median_price))+
+  geom_col(col = "black",
+           fill = "#476F84")+
+  geom_errorbar(aes(ymin = media_median_price - dev_st_median_price, 
+                    ymax = media_median_price + dev_st_median_price), 
+                width = 0.3,
+                col = "black")+
+  scale_x_continuous(limits = c(0.5, 12.5),
+                     breaks = seq(1, 12, by = 1))+
+  scale_y_continuous(labels = label_number(big.mark = ".",
+                                           decimal.mark = ","))+
+  labs(title = "Media del prezzo mediano di vendita per mese, con dev. standard",
+       x = "Mese",
+       y = "Media del prezzo mediano ($)")+
+  theme_minimal()
+```
+
+Il grafico mostra come il prezzo mediano di vendita sia molto meno condizionato dalla variabile *month*, sia per quanto riguarda la media, che per la deviazione standard. In generale, quindi, il prezzo mediano di vendita rimane stabile tra i vari mesi dell'anno. 
+
+
+
+# 8. Creazione di visualizzazioni con ggplot2
+
+## Prezzo mediano di vendita per città
+
+```{r}
+ggplot(data = realestate_texas, aes(x = city,
+                                    y = median_price))+
+  geom_boxplot(fill = "#A4BED5")+
+  scale_y_continuous(labels = label_number(big.mark = ".",
+                                           decimal.mark = ","))+
+  labs(title = "Distribuzione del prezzo mediano di vendita per città",
+       x = "Città",
+       y = "Prezzo mediano di vendita ($)")+
+  theme_minimal()+
+  theme(legend.position = "none")
+```
+
+Questo grafico conferma che la città con il prezzo mediano di vendita più alto è Bryan-College Station, seguita in ordine da Tyler, Beaumont, e Wichita Falls. Bryan-College Station è anche la città che presenta il più basso range interquartile, indicando una bassa variabilità del corpo centrale dei dati osservati. Wichita Falls, al contrario, è la città che presenta il più alto range interquartile, pertanto il corpo centrale dei dati è maggiormente disperso attorno al valore medio. 
+Un altro aspetto evidenziato dal grafico è la presenza di valori anomali in tre distribuzioni su quattro. In particolare, i valori anomali per le città di Beaumont e Wichita Falls sono molto distanti dal massimo relativo. Ciò significa che, per queste due distribuzioni, è più opportuno utilizzare la mediana come indice di posizione, anziché la media. 
+
+
+## Numero di vendite per città e anno
+
+```{r}
+palette_acadia_custom <- c("#FED789", "#A4BED5", "#72874E", "#476F84", "#807083")
+
+ggplot(data = realestate_texas, aes(x = city,
+                                    y = sales,
+                                    fill = factor(year)))+
+  geom_boxplot()+
+  scale_fill_manual(values = palette_acadia_custom)+
+  labs(title = "Distribuzione del numero di vendite per città e anno",
+       x = "Città",
+       y = "Numero di vendite",
+       fill = "Anno")+
+  theme_minimal()+
+  theme(legend.position = "bottom")
+```
+
+Come rilevato nelle precedenti analisi, questo grafico conferma che la città con il numero di vendite più alto è Tyler, seguita in ordine da Bryan-College Station, Beaumont, e Wichita Falls. La città che presenta il range interquartile più alto è Bryan-College Station (notare che invece, prendendo in esame il prezzo mediano di vendita, presentava il range interquartile più basso), indicando un'alta variabilità nel corpo centrale dei dati osservati. La città di Wichita Falls, invece, che per il prezzo mediano di vendita aveva il range interquartile più alto, nel caso del numero di vendite è la città con minore variabilità nel corpo centrale dei dati. 
+In questo grafico non risultano punti neri, pertanto non sono presenti valori anomali nelle quattro distribuzioni. 
+
+Inoltre, il grafico conferma l'andamento generalmente positivo del numero di vendite negli anni, in quanto si può osservare l'incremento sia del valore mediano che del range interquartile di anno in anno. Tuttavia, con l'aumento del numero delle vendite negli anni è aumentata anche la variabilità delle osservazioni; infatti, il range interquartile nel 2014 è decisamente maggiore rispetto a quello osservato nel 2011. 
+
+
+## Valore totale delle vendite per mese
+
+```{r}
+ggplot(realestate_texas, aes(x = month,
+                             y = volume))+
+  geom_col(fill = "#023743")+
+  scale_x_continuous(limits = c(0.5, 12.5),
+                     breaks = seq(1, 12, by = 1))+
+  scale_y_continuous(labels = label_number(big.mark = ".",
+                                           decimal.mark = ","))+
+  labs(title = "Valore totale delle vendite per mese",
+       x = "Mese",
+       y = "Valore totale delle vendite (mln $)")+
+  theme_minimal()
+```
+
+Dal grafico si evince che i mesi con il maggior volume di vendite di osservate sono maggio, giugno, luglio e agosto. I mesi estivi, quindi, risultano essere i più proficui per la vendita degli immobili, mentre i mesi di gennaio e febbraio sono quelli meno redditizi. 
+
+
+## Valore totale delle vendite per mese e città
+
+```{r}
+ggplot(data = realestate_texas, aes(x = month,
+                                    y = volume,
+                                    fill = city))+
+  geom_col(position = "stack")+
+  scale_fill_manual(values = palette_acadia_custom)+
+  scale_x_continuous(limits = c(0.5, 12.5),
+                     breaks = seq(1, 12, by = 1))+
+  labs(title = "Valore totale delle vendite per mese e città",
+       x = "Mese",
+       y = "Valore totale delle vendite (mln $)",
+       fill = "Città")+
+  theme_minimal()+
+  theme(legend.position = "bottom")
+```
+
+Questo grafico a barre sovrapposte mostra le stesse barre dell'ultimo grafico, ma con un'informazione in più, ovvero la suddivisione del valore totale delle vendite in un determinato mese per città. Il risultato conferma ciò che abbiamo già osservato in precedenza, ovvero che il maggior numero di vendite si concentra nelle città di Bryan-College Station e Tyler, indipendentemente dal mese. 
+
+
+Ora proviamo a rappresentare gli stessi dati, ma utilizzando un grafico normalizzato.
+
+```{r}
+ggplot(data = realestate_texas, aes(x = month,
+                                    y = volume,
+                                    fill = city))+
+  geom_col(position = "fill")+
+  scale_fill_manual(values = palette_acadia_custom)+
+  scale_x_continuous(limits = c(0.5, 12.5),
+                     breaks = seq(1, 12, by = 1))+
+  scale_y_continuous(breaks = seq(0, 1, 0.25))+
+  labs(title = "Valore totale delle vendite per mese e città",
+       x = "Mese",
+       y = "Frequenze assolute",
+       fill = "Città")+
+  theme_minimal()+
+  theme(legend.position = "bottom")
+```
+
+Questo grafico mostra con maggior chiarezza e in maniera più immediata che, indipendentemente dal periodo dell'anno, il valore totale delle vendite per ciascuna città rispetto al totale rimane pressoché invariato, con le città di Bryan-College Station e Tyler che risultano le più redditizie. 
+
+
+## Valore totale delle vendite per mese, anno e città
+
+```{r}
+ggplot(data = realestate_texas, aes(x = mm_yy_date,
+                                    y = volume,
+                                    fill = city))+
+  geom_col(position = "fill")+
+  scale_fill_manual(values = palette_acadia_custom)+
+  scale_x_date(breaks = seq(as.Date("2010-01-01"), as.Date("2014-01-01"), by = "1 year"),
+               date_labels = "%Y")+
+  scale_y_continuous(breaks = seq(0, 1, 0.25))+
+  labs(title = "Valore totale delle vendite per mese, anno e città",
+       x = NULL,
+       y = "Frequenze assolute",
+       fill = "Città")+
+  theme_minimal()+
+  theme(legend.position = "bottom")
+```
+
+In questo grafico, ogni barra sovrapposta rappresenta il valore totale delle vendite per uno specifico mese tra gennaio 2010 e dicembre 2014, suddiviso per città. Pertanto, questo grafico fornisce un livello di dettaglio ancora maggiore rispetto a quello precedente, in quanto dà la possibilità di vedere l'andamento storico della variabile osservata, ovvero il valore totale delle vendite. 
+
+
+## Valore totale delle vendite per città
+
+```{r}
+ggplot(realestate_texas, aes(x = city,
+                             y = volume))+
+  geom_col(fill = "#023743")+
+  scale_y_continuous(labels = label_number(big.mark = ".",
+                                           decimal.mark = ","))+
+  labs(title = "Valore totale delle vendite per città",
+       x = "Città",
+       y = "Valore totale delle vendite (mln $)")+
+  theme_minimal()
+```
+
+Dal grafico si evince che il maggior volume di vendite osservate si concentra nella città di Tyler, nonostante la città con la distribuzione del prezzo mediano di vendita maggiore sia Bryan-College Station. 
+
+
+## Andamento storico delle vendite per città
+
+Per analizzare l'andamento storico di una variabile osservata, uno dei grafici più efficaci è il **line chart**.
+
+```{r}
+ggplot(realestate_texas, aes(x = mm_yy_date, 
+                             y = sales, 
+                             col = city, 
+                             group = city))+
+  geom_line(linewidth = 0.8)+
+  geom_point(size = 2)+
+  scale_x_date(breaks = seq(as.Date("2010-01-01"), as.Date("2014-01-01"), by = "1 year"),
+               date_labels = "%Y")+
+  scale_color_manual(values = palette_acadia_custom)+
+  labs(title = "Vendite per città nel periodo 2010-2014",
+       x = NULL,
+       y = "Numero di vendite",
+       color = "Città")+
+  theme_minimal()+
+  theme(legend.position = "bottom")
+```
+
+Il grafico mostra, innanzitutto, dei picchi nel numero di vendite negli anni 2013 e 2014 per le città Bryan-College Station e Tyler, a conferma di quanto rilevato nelle analisi precedenti. Si può notare, inoltre, che per queste due città l'andamento delle vendite nel periodo 2010-2014 è stato molto instabile, indicando quindi un mercato poco prevedibile e ad alto rischio. 
+La città di Wichita Falls, invece, presenta un numero di vendite decisamente minore nel periodo osservato, ma l'andamento risulta essere molto più stabile e meno soggetto a picchi, indicando una maggiore prevedibilità del mercato.
+
+
+## Andamento storico del prezzo mediano di vendita per città
+
+```{r}
+ggplot(realestate_texas, aes(x = mm_yy_date, 
+                             y = median_price, 
+                             col = city, 
+                             group = city))+
+  geom_line(linewidth = 0.8)+
+  geom_point(size = 2)+
+  scale_x_date(breaks = seq(as.Date("2010-01-01"), as.Date("2014-01-01"), by = "1 year"),
+               date_labels = "%Y")+
+  scale_y_continuous(labels = label_number(big.mark = ".",
+                                           decimal.mark = ","))+
+  scale_color_manual(values = palette_acadia_custom)+
+  labs(title = "Prezzo mediano di vendita per città nel periodo 2010-2014",
+       x = NULL,
+       y = "Prezzo mediano di vendita ($)",
+       color = "Città")+
+  theme_minimal()+
+  theme(legend.position = "bottom")
+```
+
+Questo grafico mostra che, considerando il prezzo mediano di vendita anziché il numero di vendite, le città di Bryan-College Station e Tyler risultano essere quelle con l'andamento più stabile e meno soggetto a picchi. La città di Beaumont, invece, all'inizio del 2010 presentava un prezzo mediano di vendita più alto di tutte le altre città, per poi subire un crollo e rimanere quasi costantemente al di sotto del prezzo mediano delle città di Bryan-College Station e Tyler. Come nel caso del numero di vendite, la città di Wichita Falls risulta avere i valori più bassi anche per il prezzo mediano di vendita. Tuttavia, presenta una volatilità molto maggiore e svariati picchi, sia positivi che negativi.
+Per quanto riguarda il prezzo mediano di vendita, quindi, Bryan-College Station e Tyler risultano essere le città più affidabili e meno rischiose, mentre Beaumont e Wichita Falls presentano un mercato altamente imprevedibile. 
+
+
+## Andamento storico dell'efficacia degli annunci di vendita per città
+
+Innanzitutto, definiamo la variabile *ratio_sales_listings* come il rapporto tra il numero di vendite e il numero di annunci attivi, per misurare l'efficacia di questi ultimi e se influiscono sul numero totale delle vendite.  
+
+```{r}
+ratio_sales_listings <- sales/listings
+```
+
+Ora rappresentiamo graficamente l'andamento storico di questa variabile, distinguendo le città. 
+
+```{r}
+ggplot(data = realestate_texas, aes(x = mm_yy_date, 
+                                   y = ratio_sales_listings, 
+                                   group = city,
+                                   col = city))+
+  geom_line(linewidth = 0.8)+
+  geom_point(size = 2)+
+  scale_x_date(breaks = seq(as.Date("2010-01-01"), as.Date("2014-01-01"), by = "1 year"),
+               date_labels = "%Y")+
+  scale_color_manual(values = palette_acadia_custom)+
+  labs(title = "Efficacia degli annunci di vendita per città nel periodo 2010-2014",
+       x = NULL,
+       y = "Rapporto vendite/annunci",
+       col = "Città")+
+  theme_minimal()+
+  theme(legend.position = "bottom")
+```
+
+Il grafico conferma che gli annunci risultano più efficaci nella città di Bryan-College Station, nel periodo 2013-2014, mentre la città dove risultano meno efficaci è Tyler, specialmente nel 2011. In generale, non risulta esserci un rapporto significativo tra il numero di vendite e il numero di annunci, da cui si può ipotizzare una necessità di rivedere le strategie di marketing attuate per le inserzioni immobiliari.  
+
+
+
+# 9. Conclusioni
+
+Dall'analisi statistica condotta si può concludere quanto segue:
+
+- Il **numero delle vendite** ha seguito un trend generalmente positivo dal 2011 al 2014, soprattutto nelle città di Tyler e Bryan-College Station. Tuttavia, durante il periodo osservato, l'andamento delle vendite è stato anche molto instabile, indicando quindi un mercato poco prevedibile e ad alto rischio. 
+- I mesi primaverili ed estivi sono, in generale, quelli in cui si concentra il maggior numero di vendite di immobili, nonostante il prezzo mediano di vendita rimanga pressoché invariato in tutti i periodi dell'anno. Pertanto, si potrebbero sviluppare delle nuove strategie di marketing finalizzate ad incrementare il numero delle vendite anche nei mesi autunnali e invernali. 
+- La città di **Wichita Falls** presenta sia il minor numero di vendite, sia il prezzo mediano di vendita più basso e maggiormente volatile, pertanto non prospetta opportunità di crescita del business. 
+- Al contrario, la città di **Tyler** è quella con il maggior numero di vendite, nonché la seconda con il prezzo mediano di vendita più alto dopo Bryan-College Station. Inoltre, il prezzo mediano di vendita è anche abbastanza stabile, quindi Tyler si prospetta una città affidabile e a basso rischio per consolidare il business. Tutto ciò nonostante il fatto che, in base ai dati osservati, Tyler risulta essere la città in cui gli annunci di vendita sono meno efficaci. 
+- La città di **Bryan-College Station**, invece, pur essendo la località con il prezzo mediano di vendita più alto e abbastanza stabile, è quella che presenta la maggior variabilità nelle vendite, e risulta pertanto più ad alto rischio. Nonostante ciò, è la città in cui gli annunci di vendita sono più efficaci, quindi una possibile strategia potrebbe essere di promuovere ulteriormente le inserzioni immobiliari, al fine di consolidare la propria presenza nel mercato locale e raggiungere un numero di vendite stabile. 
+- Nel periodo osservato, la città di **Beaumont** ha mantenuto un numero di vendite contenuto ma stabile, nonostante il prezzo mediano di vendita sia stato soggetto a maggiore volatilità rispetto ad altre città. Adottando delle nuove strategie di marketing, potrebbe rivelarsi un'opportunità redditizia. 
+- In generale, non risulta esserci un rapporto significativo tra il numero di vendite e il numero di annunci, ad eccezione della città di Bryan-College Station. Da questa osservazione si può ipotizzare una necessità di rivedere le strategie di marketing attuate per le inserzioni immobiliari. 
